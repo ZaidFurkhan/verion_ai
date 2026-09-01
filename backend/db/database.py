@@ -1,4 +1,5 @@
 import os
+import ssl
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
 from dotenv import load_dotenv
@@ -7,7 +8,19 @@ load_dotenv(override=True)
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://postgres:postgres@localhost:5432/verion_ai")
 
-engine = create_async_engine(DATABASE_URL, echo=False, future=True)
+# Build an SSL context that satisfies Neon's channel_binding=require setting
+_ssl_ctx = ssl.create_default_context()
+
+engine = create_async_engine(
+    DATABASE_URL,
+    echo=False,
+    future=True,
+    pool_pre_ping=True,
+    connect_args={
+        "timeout": 30,      # seconds – gives Neon pooler time to respond
+        "ssl": _ssl_ctx,    # full SSL context; asyncpg ignores ?ssl= in the URL
+    },
+)
 
 AsyncSessionLocal = sessionmaker(
     bind=engine,
